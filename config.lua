@@ -17,6 +17,7 @@ Config.EnablePlayerManagement     = false -- Enable society managing (If you are
 
 Config.RemoveWeaponsAfterRPDeath  = true
 Config.RemoveCashAfterRPDeath     = true
+Config.RemoveBlackMoneyAfterRPDeaht=true
 Config.RemoveItemsAfterRPDeath    = true
 
 -- Let the player pay for respawning early, only if he can afford it.
