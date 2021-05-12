@@ -92,7 +92,9 @@ ESX.RegisterServerCallback('esx_ambulancejob:removeItemsAfterRPDeath', function(
 		if xPlayer.getMoney() > 0 then
 			xPlayer.removeMoney(xPlayer.getMoney())
 		end
-
+	end
+		
+	if Config.RemoveBlackCashAfterRPDeath then
 		if xPlayer.getAccount('black_money').money > 0 then
 			xPlayer.setAccountMoney('black_money', 0)
 		end
