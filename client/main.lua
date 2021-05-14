@@ -33,7 +33,7 @@ RegisterNetEvent('esx:setJob')
 AddEventHandler('esx:setJob', function(job)
 	ESX.PlayerData.job = job
 end)
-
+--[[
 AddEventHandler('esx:onPlayerSpawn', function()
 	isDead = false
 
@@ -49,6 +49,25 @@ AddEventHandler('esx:onPlayerSpawn', function()
 				if shouldDie then
 					Citizen.Wait(10000)
 					SetEntityHealth(PlayerPedId(), 0)
+				end
+			end)
+		end
+	end
+end)]]
+
+RegisterNetEvent('esx_ambulancejob:multicharacter')
+AddEventHandler('esx_ambulancejob:multicharacter', function()
+	isDead = false
+	if firstSpawn then
+		firstSpawn = false
+		if Config.AntiCombatLog then
+			while not PlayerLoaded do
+				Citizen.Wait(1000)
+			end
+			ESX.TriggerServerCallback('esx_ambulancejob:getDeathStatus', function(isDead)
+				if isDead and Config.AntiCombatLog then
+					ESX.ShowNotification(_U('combatlog_message'))
+					RemoveItemsAfterRPDeath()
 				end
 			end)
 		end
@@ -345,7 +364,7 @@ function RemoveItemsAfterRPDeath()
 	end)
 end
 
-function RespawnPed(ped, coords, heading)
+--[[function RespawnPed(ped, coords, heading)
 	SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false, true)
 	NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, heading, true, false)
 	SetPlayerInvincible(ped, false)
@@ -353,6 +372,19 @@ function RespawnPed(ped, coords, heading)
 
 	TriggerServerEvent('esx:onPlayerSpawn')
 	TriggerEvent('esx:onPlayerSpawn')
+	TriggerEvent('playerSpawned') -- compatibility with old scripts, will be removed soon
+end]]
+
+function RespawnPed(ped, coords, heading)
+	SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false, true)
+	NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, heading, true, false)
+	SetPlayerInvincible(ped, false)
+	ClearPedBloodDamage(ped)
+	TriggerEvent('esx_status:set', 'hunger', 250000)
+	TriggerEvent('esx_status:set', 'thirst', 250000)
+
+	TriggerServerEvent('esx:onPlayerSpawn')
+	TriggerEvent('esx_ambulancejob:multicharacter')
 	TriggerEvent('playerSpawned') -- compatibility with old scripts, will be removed soon
 end
 

@@ -1,6 +1,7 @@
 local CurrentAction, CurrentActionMsg, CurrentActionData = nil, '', {}
 local HasAlreadyEnteredMarker, LastHospital, LastPart, LastPartNum
 local isBusy, deadPlayers, deadPlayerBlips, isOnDuty = false, {}, {}, false
+local display = false
 isInShopMenu = false
 
 function OpenAmbulanceActionsMenu()
@@ -30,108 +31,127 @@ function OpenAmbulanceActionsMenu()
 end
 
 function OpenMobileAmbulanceActionsMenu()
-	ESX.UI.Menu.CloseAll()
+	SetDisplay(true)
+end
 
-	ESX.UI.Menu.Open('default', GetCurrentResourceName(), 'mobile_ambulance_actions', {
-		title    = _U('ambulance'),
-		align    = 'top-left',
-		elements = {
-			{label = _U('ems_menu'), value = 'citizen_interaction'}
-	}}, function(data, menu)
-		if data.current.value == 'citizen_interaction' then
-			ESX.UI.Menu.Open('default', GetCurrentResourceName(), 'citizen_interaction', {
-				title    = _U('ems_menu_title'),
-				align    = 'top-left',
-				elements = {
-					{label = _U('ems_menu_revive'), value = 'revive'},
-					{label = _U('ems_menu_small'), value = 'small'},
-					{label = _U('ems_menu_big'), value = 'big'},
-					{label = _U('ems_menu_putincar'), value = 'put_in_vehicle'},
-					{label = _U('ems_menu_search'), value = 'search'}
-			}}, function(data, menu)
-				if isBusy then return end
+-----------------------------------------------------------------------------
+-- NUI OPEN/CLOSE FUNCTIONS
+-----------------------------------------------------------------------------
 
-				local closestPlayer, closestDistance = ESX.Game.GetClosestPlayer()
+function SetDisplay(bool)
+    display = bool
+    SetNuiFocus(bool, bool)
+    SendNUIMessage({
+        type = "ui",
+        status = bool,
+    })
+end
 
-				if data.current.value == 'search' then
-					TriggerServerEvent('esx_ambulancejob:svsearch')
-				elseif closestPlayer == -1 or closestDistance > 1.0 then
-					ESX.ShowNotification(_U('no_players'))
-				else
-					if data.current.value == 'revive' then
-						revivePlayer(closestPlayer)
-					elseif data.current.value == 'small' then
-						ESX.TriggerServerCallback('esx_ambulancejob:getItemAmount', function(quantity)
-							if quantity > 0 then
-								local closestPlayerPed = GetPlayerPed(closestPlayer)
-								local health = GetEntityHealth(closestPlayerPed)
+RegisterNUICallback('escape', function(data, cb)
+	--TriggerEvent('esx_ambulancejob:closeMedMenu')
+	SetDisplay(false)
+	cb('ok')
+end)
 
-								if health > 0 then
-									local playerPed = PlayerPedId()
+RegisterNUICallback('EMS_Commands', function(data, cb)
+	--ESX.PrintChatMessage("EMT Commad: " ..data.emtcmd )
+	  
+    EMTControl(data.emtcmd)
+    cb('ok')
+end)
 
-									isBusy = true
-									ESX.ShowNotification(_U('heal_inprogress'))
-									TaskStartScenarioInPlace(playerPed, 'CODE_HUMAN_MEDIC_TEND_TO_DEAD', 0, true)
-									Citizen.Wait(10000)
-									ClearPedTasks(playerPed)
+function EMTControl(emtcmd)
 
-									TriggerServerEvent('esx_ambulancejob:removeItem', 'bandage')
-									TriggerServerEvent('esx_ambulancejob:heal', GetPlayerServerId(closestPlayer), 'small')
-									ESX.ShowNotification(_U('heal_complete', GetPlayerName(closestPlayer)))
-									isBusy = false
-								else
-									ESX.ShowNotification(_U('player_not_conscious'))
-								end
-							else
-								ESX.ShowNotification(_U('not_enough_bandage'))
-							end
-						end, 'bandage')
+	if IsPedInAnyVehicle(playerPedId(), true) then
+		local closestPlayer, closestDistance = ESX.Game.GetClosestPlayer()
+		if closestPlayer == -1 or closestDistance > 1.0 then
+			--sendCMDMessage('no_players')
+			exports['mythic_notify']:SendAlert('error','No Nearby Players')
+		else
+			if emtcmd == 0 then -- Revive Player
+				sendCMDMessage(emtcmd)
+				revivePlayer(closestPlayer)
+			elseif emtcmd == 1 then -- Heal Player Small
+				--sendCMDMessage(emtcmd)
+				ESX.TriggerServerCallback('esx_ambulancejob:getItemAmount', function(quantity)
+					if quantity > 0 then
+						local closestPlayerPed = GetPlayerPed(closestPlayer)
+						local health = GetEntityHealth(closestPlayerPed)
 
-					elseif data.current.value == 'big' then
+						if health > 0 then
+							local playerPed = PlayerPedId()
 
-						ESX.TriggerServerCallback('esx_ambulancejob:getItemAmount', function(quantity)
-							if quantity > 0 then
-								local closestPlayerPed = GetPlayerPed(closestPlayer)
-								local health = GetEntityHealth(closestPlayerPed)
+							isBusy = true
+							exports['mythic_notify']:SendAlert('inform','heal_inprogress')
+							TaskStartScenarioInPlace(playerPed, 'CODE_HUMAN_MEDIC_TEND_TO_DEAD', 0, true)
+							Citizen.Wait(10000)
+							ClearPedTasks(playerPed)
 
-								if health > 0 then
-									local playerPed = PlayerPedId()
-
-									isBusy = true
-									ESX.ShowNotification(_U('heal_inprogress'))
-									TaskStartScenarioInPlace(playerPed, 'CODE_HUMAN_MEDIC_TEND_TO_DEAD', 0, true)
-									Citizen.Wait(10000)
-									ClearPedTasks(playerPed)
-
-									TriggerServerEvent('esx_ambulancejob:removeItem', 'medikit')
-									TriggerServerEvent('esx_ambulancejob:heal', GetPlayerServerId(closestPlayer), 'big')
-									ESX.ShowNotification(_U('heal_complete', GetPlayerName(closestPlayer)))
-									isBusy = false
-								else
-									ESX.ShowNotification(_U('player_not_conscious'))
-								end
-							else
-								ESX.ShowNotification(_U('not_enough_medikit'))
-							end
-						end, 'medikit')
-
-					elseif data.current.value == 'put_in_vehicle' then
-						TriggerServerEvent('esx_ambulancejob:putInVehicle', GetPlayerServerId(closestPlayer))
+							TriggerServerEvent('esx_ambulancejob:removeItem', 'bandage')
+							TriggerServerEvent('esx_ambulancejob:heal', GetPlayerServerId(closestPlayer), 'small')
+							exports['mythic_notify']:SendAlert('success','heal_complete', GetPlayerName(closestPlayer))
+							isBusy = false
+						else
+							exports['mythic_notify']:SendAlert('inform','player_not_conscious')
+						end
+					else
+						exports['mythic_notify']:SendAlert('error','not_enough_bandage')
 					end
-				end
-			end, function(data, menu)
-				menu.close()
-			end)
+				end, 'bandage')
+			elseif emtcmd == 2 then -- Heal Player Big
+				--sendCMDMessage(emtcmd)
+				ESX.TriggerServerCallback('esx_ambulancejob:getItemAmount', function(quantity)
+					if quantity > 0 then
+						local closestPlayerPed = GetPlayerPed(closestPlayer)
+						local health = GetEntityHealth(closestPlayerPed)
+
+						if health > 0 then
+							local playerPed = PlayerPedId()
+
+							isBusy = true
+							exports['mythic_notify']:SendAlert('inform','heal_inprogress')
+							TaskStartScenarioInPlace(playerPed, 'CODE_HUMAN_MEDIC_TEND_TO_DEAD', 0, true)
+							Citizen.Wait(10000)
+							ClearPedTasks(playerPed)
+
+							TriggerServerEvent('esx_ambulancejob:removeItem', 'medikit')
+							TriggerServerEvent('esx_ambulancejob:heal', GetPlayerServerId(closestPlayer), 'big')
+							exports['mythic_notify']:SendAlert('success','heal_complete', GetPlayerName(closestPlayer))
+							isBusy = false
+						else
+							exports['mythic_notify']:SendAlert('inform','player_not_conscious')
+						end
+					else
+						exports['mythic_notify']:SendAlert('error','not_enough_medikit')
+					end
+				end, 'medikit')
+			elseif emtcmd == 3 then -- Put Player In Ambulance
+				--sendCMDMessage(emtcmd)
+				TriggerServerEvent('esx_ambulancejob:putInVehicle', GetPlayerServerId(closestPlayer))
+			elseif emtcmd == 4 then
+			--	sendCMDMessage(emtcmd)
+				TriggerServerEvent('esx_ambulancejob:svsearch')
+			else
+				sendCMDMessage(emtcmd)
+			end
 		end
 
-	end, function(data, menu)
-		menu.close()
-	end)
+	else
+
+	end
+end
+
+function sendCMDMessage(msg)
+TriggerEvent('chat:addMessage', {
+	color = { 255, 0, 0},
+	multiline = true,
+	args = {"EMT Command:", " "..msg}
+	})
 end
 
 function revivePlayer(closestPlayer)
 	isBusy = true
-
+	--sendCMDMessage(closestPlayer)
 	ESX.TriggerServerCallback('esx_ambulancejob:getItemAmount', function(quantity)
 		if quantity > 0 then
 			local closestPlayerPed = GetPlayerPed(closestPlayer)
@@ -524,3 +544,19 @@ AddEventHandler('esx_ambulancejob:setDeadPlayers', function(_deadPlayers)
 		end
 	end
 end)
+
+-- close the menu when script is stopping to avoid being stuck in NUI focus
+AddEventHandler('onResourceStop', function(resource)
+	if resource == GetCurrentResourceName() then
+		if menuIsShowed then
+		--	TriggerEvent('esx_ambulancejob:closeMedMenu')
+		SetDisplay(false)
+		end
+	end
+end)
+
+function DisplayHelpText(str)
+	SetTextComponentFormat("STRING")
+	AddTextComponentString(str)
+	DisplayHelpTextFromStringLabel(0, 0, 1, -1)
+end

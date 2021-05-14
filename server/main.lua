@@ -93,7 +93,7 @@ ESX.RegisterServerCallback('esx_ambulancejob:removeItemsAfterRPDeath', function(
 			xPlayer.removeMoney(xPlayer.getMoney())
 		end
 	end
-		
+
 	if Config.RemoveBlackCashAfterRPDeath then
 		if xPlayer.getAccount('black_money').money > 0 then
 			xPlayer.setAccountMoney('black_money', 0)
@@ -160,13 +160,15 @@ end)
 ESX.RegisterServerCallback('esx_ambulancejob:buyJobVehicle', function(source, cb, vehicleProps, type)
 	local xPlayer = ESX.GetPlayerFromId(source)
 	local price = getPriceFromHash(vehicleProps.model, xPlayer.job.grade_name, type)
+	local accountMoney = xPlayer.getAccount('bank').money
 
 	-- vehicle model not found
 	if price == 0 then
 		cb(false)
 	else
-		if xPlayer.getMoney() >= price then
-			xPlayer.removeMoney(price)
+		if accountMoney >= price then --xPlayer.getMoney()
+				--xPlayer.removeMoney(price)
+				xPlayer.removeAccountMoney('bank', price)
 
 			MySQL.Async.execute('INSERT INTO owned_vehicles (owner, vehicle, plate, type, job, `stored`) VALUES (@owner, @vehicle, @plate, @type, @job, @stored)', {
 				['@owner'] = xPlayer.identifier,
@@ -261,7 +263,7 @@ AddEventHandler('esx_ambulancejob:giveItem', function(itemName, amount)
 	end
 end)
 
-ESX.RegisterCommand('revive', 'admin', function(xPlayer, args, showError)
+ESX.RegisterCommand('arevive', 'admin', function(xPlayer, args, showError)
 	args.playerId.triggerEvent('esx_ambulancejob:revive')
 end, true, {help = _U('revive_help'), validate = true, arguments = {
 	{name = 'playerId', help = 'The player id', type = 'player'}
